@@ -23,19 +23,19 @@ import os
 import sys
 
 
-def dcount (depth, start=0):
+def dcount (depth, start=0, this=True):
     """Returns an iterator counting from *start* to *depth*,
-    yielding True value at each step. *depth* can be infinity."""
+    yielding *this* at each step. *depth* can be infinity."""
     if depth == float('+inf'):
         def inner_count():
             while True:
-                yield True
+                yield this
     else:
         def inner_count():
             level = start
             while level < depth:
                 level += 1
-                yield True
+                yield this
     return inner_count
 
 def find (path, depth=float('+inf'), raise_errors=False):
