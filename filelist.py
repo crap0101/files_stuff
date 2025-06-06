@@ -22,43 +22,57 @@ from itertools import chain
 import os
 import sys
 
-def dcount (depth):
+
+def dcount (depth, start=0):
+    """Returns an iterator counting from *start* to *depth*,
+    yielding True value at each step. *depth* can be infinity."""
     if depth == float('+inf'):
         def inner_count():
             while True:
                 yield True
     else:
         def inner_count():
-            #depth = depth
-            level = 0
+            level = start
             while level < depth:
                 level += 1
                 yield True
     return inner_count
 
-def find (path, depth=float('+inf')):
+def find (path, depth=float('+inf'), raise_errors=False):
     """Yields pathnames starting from *path* descending *depth* levels.
-    Level 0 is the level of *path*."""
+    Level 0 is the level of *path*.
+    If *raise_errors* is a true value, raise errors for unreadable paths,
+    otherwise ignore those paths."""
     if depth < 0:
         raise ValueError("find: invalid *depth* value, must be >= 0")
     levels = [[path]]
     for _ in dcount(depth)():
         new_level = []
         for base in levels[-1]:
-            with os.scandir(base) as dir_iter:
-                for item in dir_iter:
-                    if item.is_dir(follow_symlinks=False):
-                        new_level.append(item.path)
+            try:
+                with os.scandir(base) as dir_iter:
+                    for item in dir_iter:
+                        if item.is_dir(follow_symlinks=False):
+                            new_level.append(item.path)
+            except PermissionError as e:
+                if raise_errors:
+                    raise
         if not new_level:
             break
         levels.append(new_level)
     for dirname in chain(*levels):
-        with os.scandir(dirname) as dir_iter:
-            for item in dir_iter:
-                if item.is_file():
-                    yield item.path
-
+        try:
+            with os.scandir(dirname) as dir_iter:
+                for item in dir_iter:
+                    if item.is_file():
+                        yield item.path
+        except PermissionError as e:
+            if raise_errors:
+                raise                        
 
 if __name__ == '__main__':
-    for p in find(sys.argv[1], float(sys.argv[2])):
-        print(p)
+    try:
+        for p in find(sys.argv[1], float(sys.argv[2])):
+            print(p)
+    except IndexError:
+        print('USAGE: {} PATH DEPTH'.format(sys.argv[0]))
