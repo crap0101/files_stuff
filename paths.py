@@ -26,15 +26,15 @@ from numbers import Number
 import os
 import re
 import sys
-import warnings
 
-#########################
-# GENERIC UTILITY FUNCS #
-#########################
+# external modules
+from py_warnings import pywarn
 
-def showwarning (message, cat, fn, lno, file=None, line=None):
-    print(message, file=sys.stderr)
-warnings.showwarning = showwarning
+# Manage warnings
+class PathWarning(pywarn.CustomWarning):
+    pass
+# set warnings to nothing, to be customize in the modules where it's imported
+pywarn.set_filter(pywarn.IGNORE_WARNINGS, PathWarning)
 
 
 #
@@ -120,7 +120,7 @@ def get_hash (path: str, hash_type_name: str, size: int) -> str:
 def get_real (path: str) -> tuple[bool, str|None, None|Exception]:
     """
     Return the canonical path of *path*, checking if realpath($path) == $path
-    Returns (bool, realpath, None) or (False, None, raised exception).
+    Returns (bool, realpath, None) or, if something's wrong, (False, None, raised exception).
     See: https://docs.python.org/3.8/library/os.path.html#os.path.realpath
     """
     try:
@@ -128,7 +128,7 @@ def get_real (path: str) -> tuple[bool, str|None, None|Exception]:
         is_real = (real_path == path)
         return is_real, real_path, None
     except OSError as err:
-        warnings.warn(f'{path} => {err}')        
+        pywarn.warn(PathWarning(f'{path} => {err}'))
         return False, None, err
 
 
