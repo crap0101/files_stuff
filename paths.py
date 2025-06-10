@@ -86,7 +86,7 @@ def exclude_pattern (path: str, patterns: Sequence[str]) -> bool:
     """
     Returns True if $path *don't* match any of $patterns (use fnmatch).
     """
-    return not check_pattern(path, pattern)
+    return not check_pattern(path, patterns)
 
 
 def exclude_regex (path: str, cregex: Sequence[re.Pattern], match_method: str = 'search') -> bool:
