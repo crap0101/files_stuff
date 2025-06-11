@@ -22,6 +22,15 @@ from itertools import chain
 import os
 import sys
 
+# external modules
+from py_warnings import pywarn
+
+# Manage warnings
+class FilelistWarning(pywarn.CustomWarning):
+    pass
+# set warnings to nothing, to be customize in the modules where it's imported
+pywarn.set_filter(pywarn.IGNORE_WARNINGS, FilelistWarning)
+
 
 def dcount (depth, start=0, this=True):
     """Returns an iterator counting from *start* to *depth*,
@@ -38,11 +47,12 @@ def dcount (depth, start=0, this=True):
                 yield this
     return inner_count
 
-def find (path, depth=float('+inf'), raise_errors=False):
+def find (path, depth=float('+inf')):
     """Yields pathnames starting from *path* descending *depth* levels.
     Level 0 is the level of *path*.
-    If *raise_errors* is a true value, raise errors for unreadable paths,
-    otherwise ignore those paths."""
+    Raise ValueError for invalid *depth* values.
+    Use the py_warnings module to tune the behaviour in case of
+    paths related errors."""
     if depth < 0:
         raise ValueError("find: invalid *depth* value, must be >= 0")
     levels = [[path]]
@@ -55,8 +65,7 @@ def find (path, depth=float('+inf'), raise_errors=False):
                         if item.is_dir(follow_symlinks=False):
                             new_level.append(item.path)
             except PermissionError as e:
-                if raise_errors:
-                    raise
+                pywarn.warn(FilelistWarning('while scanning {} => {}'.format(base, e)))
         if not new_level:
             break
         levels.append(new_level)
@@ -67,8 +76,8 @@ def find (path, depth=float('+inf'), raise_errors=False):
                     if item.is_file():
                         yield item.path
         except PermissionError as e:
-            if raise_errors:
-                raise                        
+                pywarn.warn(FilelistWarning('while scanning {} => {}'.format(dirname, e)))
+
 
 if __name__ == '__main__':
     try:
