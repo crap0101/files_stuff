@@ -36,20 +36,20 @@ class SIBytes(metaclass=MetaBytes):
     BASE = 1000
     SYMBOL = "B"
     UNIT_SYMBOLS = ("B", "kB", "MB", "GB", "TB", "PB", "EB", "ZB", "YB", "RB", "QB")
-    EXP_SYM = {}
+    EXP_SYM: dict[str,int] = {}
 
 
 class IECBytes(metaclass=MetaBytes):
     BASE = 1024
     SYMBOL = "B"
     UNIT_SYMBOLS = ("B", "KiB", "MiB", "GiB", "TiB", "PiB", "EiB", "ZiB", "YiB", "RiB", "QiB")
-    EXP_SYM = {}
+    EXP_SYM: dict[str,int] = {}
 
-class MEMBytes(metaclass=MetaBytes): #XXX: probably not so use(d|ful)
+class MEMBytes(metaclass=MetaBytes):
     BASE = 1024
     SYMBOL = "B"
     UNIT_SYMBOLS = ("B", "KB", "MB", "GB", "TB")
-    EXP_SYM = {}
+    EXP_SYM: dict[str,int] = {}
 
 
 class BytesUnit:
@@ -70,8 +70,8 @@ class BytesUnit:
     """
     BYTES_CLASSES = (SIBytes, IECBytes, MEMBytes) 
     def __init__ (self,
-                  value:    [int|float|str],
-                  unit:     [str|None] = None,
+                  value:    int|float|str,
+                  unit:     str|None = None,
                   standard: MetaBytes = IECBytes):
         if standard not in self.BYTES_CLASSES:
             raise ValueError(f'Unknown standard value: {standard}')
@@ -117,13 +117,9 @@ class BytesUnit:
     @property
     def bytes (self):
         return self._value * self.exp
-    #XXX: bytes.setter ????
     @property
     def value (self):
         return self._value
-    # @value.setter #XXX ???
-    # def value (self, val):
-    #     self._value = val
     @property
     def exp (self):
         return self.standard.EXP_SYM[self.symbol]
@@ -132,6 +128,15 @@ class BytesUnit:
         return self._symbol
     @symbol.setter
     def symbol (self, sym):
+        """
+        Changes the unit symbol to *sym* (a bytes unit of the same standard).
+        >>> yy == BytesUnit(2, 'TiB')
+        >>> yy
+        2TiB
+        >>> yy.symbol = 'GiB'
+        >>> yy
+        2048GiB
+        """
         if sym not in self.standard.UNIT_SYMBOLS:
             raise ValueError(f'Unknown symbol "{sym}"')
         if sym != self._symbol:
@@ -151,42 +156,38 @@ class BytesUnit:
     ######################
     # comparison methods #
     ######################
-    # XXX+TODO: compare False with other BytesUnit of different standard?
     def __eq__ (self, other):
-        """Compare equals with any istance of BytesUnit which uses the allowed bytes classes."""
+        """Compare equals with istances of BytesUnit with the same value and bytes class."""
         try:
-            return other.standard in self.BYTES_CLASSES and self.bytes == other.bytes #XXX+TODO: better: == other.standard (for all comp)
+            return self.standard == other.standard and self.bytes == other.bytes
         except (AttributeError, TypeError):
             return False
     def __ne__ (self, other):
         return not (self == other)
     def __lt__ (self, other):
         try:
-            return other.standard in self.BYTES_CLASSES and self.bytes < other.bytes
+            return self.standard == other.standard and self.bytes < other.bytes
         except (AttributeError, TypeError):
             raise TypeError(f"'<' not supported between instances of"
                             f"'{self.__class__.__name__}' and '{other.__class__.__name__}'") from None
     def __le__ (self, other):
         try:
-            return other.standard in self.BYTES_CLASSES and self.bytes <= other.bytes
+            return self.standard == other.standard and self.bytes <= other.bytes
         except (AttributeError, TypeError):
             raise TypeError(f"'<=' not supported between instances of"
                             f"'{self.__class__.__name__}' and '{other.__class__.__name__}'") from None
     def __gt__ (self, other):
         try:
-            return other.standard in self.BYTES_CLASSES and self.bytes > other.bytes
+            return self.standard == other.standard and self.bytes > other.bytes
         except (AttributeError, TypeError):
             raise TypeError(f"'>' not supported between instances of"
                             f"'{self.__class__.__name__}' and '{other.__class__.__name__}'") from None
     def __ge__ (self, other):
         try:
-            return other.standard in self.BYTES_CLASSES and self.bytes >= other.bytes
+            return self.standard == other.standard and self.bytes >= other.bytes
         except (AttributeError, TypeError):
             raise TypeError(f"'>=' not supported between instances of"
                             f"'{self.__class__.__name__}' and '{other.__class__.__name__}'") from None  
-    # XXX: make them immutable??? (otherwise don't using __hash__
-    #def __hash__(self):
-    #    return hash((BytesUnit, self.standard, self.bytes))
 
     ###################
     # numeric methods #
@@ -305,6 +306,7 @@ class BytesUnit:
         return BytesUnit(+ self.value, self.symbol, self.standard)
     def __abs__ (self):
         return BytesUnit(abs(self.value), self.symbol, self.standard)
+
     ##########################
     # Other numberic methods #
     ##########################
@@ -317,11 +319,14 @@ class BytesUnit:
     def __ceil__ (self):
         return BytesUnit(math.ceil(self.value), self.symbol, self.standard)
 
+    # XXX:todo
+    def convert(to_unit):
+        return NotImplemented
 
     
 def string_to_bytes (string: str,
                      standard: MetaBytes = SIBytes,
-                     with_suffix: bool = False) -> [int|tuple[int,str,bool]]:
+                     with_suffix: bool = False) -> int|tuple[int,str,bool]:
     """
     Returns the number of bytes (as integer) represented by *string*.
     NOTE: float values may be truncated... at some point :D
