@@ -46,10 +46,10 @@ class MEMBytes(metaclass=MetaBytes):
 # UTILITY FUNCTIONS #
 #####################
 
-def format_num (n, decs='2'):
+def format_num (n, decs=2):
     """Get rid of some annoiyng outputs in scientific notation of string.format()"""
     import math
-    decimal = '0' if trunc(n) == n else decs
+    decimal = '0' if trunc(n) == n else str(decs)
     return '{:.{}f}'.format(n, decimal)
 
 # unused... keep here anyway :)
