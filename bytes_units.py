@@ -5,19 +5,9 @@ import operator
 import re
 
 
-def format_num (n, decs='2'):
-    """Get rid of some annoiyng outputs in scientific notation of string.format()"""
-    import math
-    decimal = '0' if trunc(n) == n else decs
-    return '{:.{}f}'.format(n, decimal)
-
-# unused... keep here anyway :)
-def decimals_threshold (n, precision=4):
-    """...to consider equals two numbers under a certain precision"""
-    exp = 10 ** precision
-    n = abs(n)
-    r =  (n - int(n)) * exp
-    return True if (n - int(n)) * exp < 1 else False
+###########
+# CLASSES #
+###########
 
 class MetaBytes(type):
     def __new__(cls, name, bases, dct):
@@ -52,6 +42,82 @@ class MEMBytes(metaclass=MetaBytes):
     EXP_SYM: dict[str,int] = {}
 
 
+#####################
+# UTILITY FUNCTIONS #
+#####################
+
+def format_num (n, decs='2'):
+    """Get rid of some annoiyng outputs in scientific notation of string.format()"""
+    import math
+    decimal = '0' if trunc(n) == n else decs
+    return '{:.{}f}'.format(n, decimal)
+
+# unused... keep here anyway :)
+def decimals_threshold (n, precision=4):
+    """...to consider equals two numbers under a certain precision"""
+    exp = 10 ** precision
+    n = abs(n)
+    r =  (n - int(n)) * exp
+    return True if (n - int(n)) * exp < 1 else False
+
+def nearest_mapval (value, mapping, cmpfunc=None):
+    """
+    Finds the *value*'s nearest value inside *mapping*.
+    Return a pair with the the associated key and the
+    distance between the given *value* and the found one.
+    *cmpfunc* is the comparison function between *value* and
+    the mapping's values as `func(mapping_value, value)` and
+    must returns something that can be sorted(). If None,
+    use a default cmp func which returns abs(mapping_value - value).
+    """
+    d = {}
+    if cmpfunc is None:
+        def cmpfunc (a, b):
+            return abs(a - b)
+    for k, v in mapping.items():
+        d[k] = cmpfunc(v, value)
+    return sorted(d.items(),key=lambda p:p[1])[0]
+
+
+def string_to_bytes (string: str,
+                     standard: MetaBytes = SIBytes,
+                     with_suffix: bool = False) -> int|tuple[int,str,bool]:
+    """
+    Returns the number of bytes (as integer) represented by *string*.
+    NOTE: float values may be truncated... at some point :D
+    *standard* is the class used to do the conversion (MEMBytes, IECBytes,
+    SIBytes, the latter is the default).
+    If *with_suffix* is a true value, returns a tuple of (bytes, "suffix", got_suffix),
+    the latter a bool indicating if the input *string* already contains a suffix.
+    Raises ValueError if something went wrong.
+    """
+    def get_bytes (match, exp_value):
+        numstr, suffix = match.groups()
+        if re.fullmatch('\d+', numstr):
+            conv = int
+        else:
+            conv = float
+        try:
+            return int(conv(numstr) * exp_value)
+        except ValueError:
+            raise ValueError(f'string <{string}>: wrong value: <{numstr}>') from None
+        except OverflowError:
+            raise ValueError('<{}> is too big!'.format(numstr)) from None
+    # find the unit
+    for suffix, exp_value in reversed(standard.EXP_SYM.items()):
+        if match := re.fullmatch('(.+?)({})'.format(suffix), string):
+            b = get_bytes(match, exp_value)
+            return (b, suffix, True) if with_suffix else b
+    else:
+        # NOTE: bare numbers without suffix
+        try:
+            b = int(float(string))
+            return (b, standard.SYMBOL, False) if with_suffix else b
+        except ValueError:
+            raise ValueError(f'wrong value: <{string}>') from None
+    #raise ValueError(f'string {string}: unknown unit suffix') # should never happens
+
+
 class BytesUnit:
     """
     Numeric methods:
@@ -75,9 +141,11 @@ class BytesUnit:
                   standard: MetaBytes = IECBytes):
         if standard not in self.BYTES_CLASSES:
             raise ValueError(f'Unknown standard value: {standard}')
+
         if (unit is not None) and (unit not in standard.UNIT_SYMBOLS):
             raise ValueError(f'Unknown unit: "{unit}"')
 
+        #XXX: change self.standard to self._standard and add a getter
         self.standard = standard
         self._symbol = unit
         self._value = None
@@ -114,6 +182,9 @@ class BytesUnit:
                 self._value = float(value)
             except OverflowError:
                 raise ValueError(f'<{value}> is too big!') from None
+        if self._symbol is None:
+            self._symbol =self.standard.SYMBOL
+
     @property
     def bytes (self):
         return self._value * self.exp
@@ -319,51 +390,15 @@ class BytesUnit:
     def __ceil__ (self):
         return BytesUnit(math.ceil(self.value), self.symbol, self.standard)
 
-    # XXX:todo
-    def convert(to_unit):
-        return NotImplemented
-
-    
-def string_to_bytes (string: str,
-                     standard: MetaBytes = SIBytes,
-                     with_suffix: bool = False) -> int|tuple[int,str,bool]:
-    """
-    Returns the number of bytes (as integer) represented by *string*.
-    NOTE: float values may be truncated... at some point :D
-    *standard* is the class used to do the conversion (MEMBytes, IECBytes,
-    SIBytes, the latter is the default).
-    If *with_suffix* is a true value, returns a tuple of (bytes, "suffix", got_suffix),
-    the latter a bool indicating if the input *string* already contains a suffix.
-    Raises ValueError if something went wrong.
-    """
-    def get_bytes (match, exp_value):
-        numstr, suffix = match.groups()
-        if re.fullmatch('\d+', numstr):
-            conv = int
-        else:
-            conv = float
-        try:
-            return int(conv(numstr) * exp_value)
-        except ValueError:
-            raise ValueError(f'string <{string}>: wrong value: <{numstr}>') from None
-        except OverflowError:
-            raise ValueError('<{}> is too big!'.format(numstr)) from None
-    # find the unit
-    for suffix, exp_value in reversed(standard.EXP_SYM.items()):
-        if match := re.fullmatch('(.+?)({})'.format(suffix), string):
-            b = get_bytes(match, exp_value)
-            return (b, suffix, True) if with_suffix else b
-    else:
-        # NOTE: bare numbers without suffix
-        try:
-            b = int(float(string))
-            return (b, standard.SYMBOL, False) if with_suffix else b
-        except ValueError:
-            raise ValueError(f'wrong value: <{string}>') from None
-    #raise ValueError(f'string {string}: unknown unit suffix') # should never happens
-                    
-
-xx=BytesUnit('10TiB');yy=BytesUnit('2TiB')
-y=yy+xx
-print("xx,yy,y", xx,yy,y)
-
+    def convert(self, standard, unit=None):
+        """
+        Returns another BytesUnit, converting self to another
+        *standard* MetaBytes class with the given *unit*.
+        If *unit* is None, tries to get the best corresponding unit,
+        closer to the original.
+        """
+        if unit is None:
+            unit, _ = nearest_mapval(self.exp, standard.EXP_SYM)
+        b = BytesUnit(self.bytes, standard=standard)
+        b.symbol = unit
+        return b
