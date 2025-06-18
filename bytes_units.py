@@ -145,18 +145,17 @@ class BytesUnit:
         if (unit is not None) and (unit not in standard.UNIT_SYMBOLS):
             raise ValueError(f'Unknown unit: "{unit}"')
 
-        #XXX: change self.standard to self._standard and add a getter
-        self.standard = standard
+        self._standard = standard
         self._symbol = unit
         self._value = None
 
         # transform string value, with an optional suffix (assumed "B" otherwise)
         if isinstance(value, str):
             try:
-                _bytes, _symbol, _got_suffix = string_to_bytes(value, self.standard, True)
+                _bytes, _symbol, _got_suffix = string_to_bytes(value, self._standard, True)
                 if self._symbol is None:
                     self._symbol = _symbol
-                    self._value = _bytes / self.standard.EXP_SYM[self._symbol]
+                    self._value = _bytes / self._standard.EXP_SYM[self._symbol]
                 elif _got_suffix:
                     raise TypeError(f"Double unit indication: '{unit}' and '{value}'")
                 else:
@@ -183,7 +182,7 @@ class BytesUnit:
             except OverflowError:
                 raise ValueError(f'<{value}> is too big!') from None
         if self._symbol is None:
-            self._symbol =self.standard.SYMBOL
+            self._symbol =self._standard.SYMBOL
 
     @property
     def bytes (self):
@@ -213,6 +212,9 @@ class BytesUnit:
         if sym != self._symbol:
             self._value = self.bytes / self.standard.EXP_SYM[sym]
             self._symbol = sym
+    @property
+    def standard (self):
+        return self._standard
     def __str__ (self):
         """NOTE: may be an approximation of the real value."""
         try:
