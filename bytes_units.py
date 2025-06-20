@@ -41,6 +41,16 @@ class MEMBytes(metaclass=MetaBytes):
     UNIT_SYMBOLS = ("B", "KB", "MB", "GB", "TB")
     EXP_SYM: dict[str,int] = {}
 
+class VariBaseBytes(MEMBytes):
+    """
+    Specilized class, only meant to be used for in place base conversions
+    (to get the corresponding bytes value).
+    """
+    @classmethod
+    def convert_base(c, base: int):
+        c.BASE = base
+        for exp, u in enumerate(c.UNIT_SYMBOLS):
+            c.EXP_SYM[u] = c.BASE ** exp
 
 #####################
 # UTILITY FUNCTIONS #
@@ -115,7 +125,7 @@ def string_to_bytes (string: str,
             return (b, standard.SYMBOL, False) if with_suffix else b
         except ValueError:
             raise ValueError(f'wrong value: <{string}>') from None
-    #raise ValueError(f'string {string}: unknown unit suffix') # should never happens
+    raise ValueError(f'you found a bug!') # should never happens
 
 
 class BytesUnit:
@@ -134,13 +144,10 @@ class BytesUnit:
           >>> 
         __r*__ methods called only for non BytesUnit objects.
     """
-    BYTES_CLASSES = (SIBytes, IECBytes, MEMBytes) 
     def __init__ (self,
                   value:    int|float|str,
                   unit:     str|None = None,
                   standard: MetaBytes = IECBytes):
-        if standard not in self.BYTES_CLASSES:
-            raise ValueError(f'Unknown standard value: {standard}')
 
         if (unit is not None) and (unit not in standard.UNIT_SYMBOLS):
             raise ValueError(f'Unknown unit: "{unit}"')
