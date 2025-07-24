@@ -80,8 +80,35 @@ def find (path, depth=float('+inf')):
 
 
 if __name__ == '__main__':
+    import argparse
+    parser = argparse.ArgumentParser()
+    parser.add_argument('-d', '--depth',
+                        dest='depth', type=int, default=-1, metavar='N',
+                        help='''Descend %(metavar)s levels of subdirs.
+                        For values < 0 descend as deep as possible (the default).
+                        Level 0 is the level of the given path.''')
+    errwarn = parser.add_mutually_exclusive_group()
+    errwarn.add_argument('-w', '--warn',
+                        dest='warn', action='store_true',
+                        help='Emit warning for unreadable paths or permission errors.')
+    errwarn.add_argument('-e', '--errors',
+                        dest='err', action='store_true',
+                        help='Raise an error for unreadable paths or permission errors.')
+    parser.add_argument('paths',
+                        metavar='PATH', nargs='+',
+                        help='For each %(metavar)s, list pathnames starting from %(metavar)s.')
+
+    args = parser.parse_args()
+    if args.depth < 0:
+        args.depth = float('+inf')
+    if args.warn:
+        pywarn.set_filter(pywarn.ALWAYS_WARNINGS, FilelistWarning)
+    elif args.err:
+        pywarn.set_filter(pywarn.ERROR_FROM_WARNINGS, FilelistWarning)
     try:
-        for p in find(sys.argv[1], float(sys.argv[2])):
-            print(p)
-    except IndexError:
-        print('USAGE: {} PATH DEPTH'.format(sys.argv[0]))
+        for path in args.paths:
+            for p in find(path, args.depth):
+                print(p)
+    except Exception as e:
+        print(f'ERROR: {e}', file=sys.stderr)
+        sys.exit(1)
